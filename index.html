@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Web Scanner - EXOT 2026</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { exotBlue: '#2B55A4', exotCyan: '#00A9E2', exotGold: '#D4AF37' },
+                    fontFamily: { sans: ['Poppins', 'sans-serif'], heading: ['Montserrat', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    
+    <!-- SweetAlert2 untuk Notifikasi Cepat -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- HTML5 QR Code Library -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-white font-sans h-screen w-screen overflow-hidden flex flex-col">
+
+    <!-- Header Branding -->
+    <header class="p-5 text-center border-b border-slate-700/50 bg-slate-800/80 backdrop-blur-md z-10">
+        <h1 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-exotCyan to-exotGold font-heading tracking-tight">EXOT <span class="text-white">SCANNER</span></h1>
+        <p class="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">Al-Wildan Islamic School</p>
+    </header>
+
+    <!-- Main Scanner Area -->
+    <div class="flex-1 flex flex-col items-center justify-center p-6 relative">
+        
+        <!-- Decorative Glow -->
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-exotCyan rounded-full mix-blend-screen filter blur-[100px] opacity-20 pointer-events-none"></div>
+
+        <div class="w-full max-w-sm bg-white rounded-[2rem] overflow-hidden shadow-2xl shadow-exotCyan/10 border-4 border-slate-700 relative z-10">
+            <!-- Tempat Reader Kamera -->
+            <div id="reader" class="w-full bg-black"></div>
+        </div>
+        
+        <div class="mt-8 text-center max-w-xs relative z-10">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-800 border border-slate-700 text-exotGold mb-3">
+                <i class="fa-solid fa-qrcode text-xl"></i>
+            </div>
+            <p class="text-slate-300 text-sm leading-relaxed">
+                Arahkan kamera ke <strong class="text-white">QR Code ID Card Penguji</strong>. Pemindaian akan berjalan otomatis.
+            </p>
+        </div>
+    </div>
+
+    <!-- JS Logic -->
+    <script>
+        const API_URL = 'https://script.google.com/macros/s/AKfycby8lMsDJQ8IuSsiMTPr3hzkjbp6fk9X-RTSGS817d8o2ejYSr0xlgLzeVZ9g2uS1eISoA/exec';
+        
+        let html5QrcodeScanner;
+        let isScanning = false; // Flag mencegah double scan
+
+        // Callback sukses saat QR terbaca
+        function onScanSuccess(decodedText, decodedResult) {
+            if (isScanning) return; 
+            isScanning = true;
+            
+            // Jeda sementara scanner visual
+            html5QrcodeScanner.pause(true);
+
+            // Tampilkan SweetAlert Loading
+            Swal.fire({
+                title: 'Memproses Kehadiran...',
+                html: `ID Terbaca: <b>${decodedText}</b><br><small class="text-slate-500">Menghubungkan ke database...</small>`,
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Kirim request POST ke Google Apps Script
+            // Note: Menggunakan Content-Type text/plain untuk menghindari block CORS Preflight pada Google Apps Script
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ id_penguji: decodedText }) 
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.status === 'success') {
+                    // Sukses Check-in
+                    let iconStatus = result.data.keterangan === 'Terlambat' ? '⚠️' : '✅';
+                    let colorStatus = result.data.keterangan === 'Terlambat' ? '#ef4444' : '#10b981';
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil Masuk!',
+                        html: `
+                            <div class="text-left bg-slate-50 p-4 rounded-xl mt-3 border border-slate-100">
+                                <div class="font-black text-slate-800 text-xl mb-1">${result.data.nama}</div>
+                                <div class="text-sm text-slate-500 border-b border-slate-200 pb-2 mb-2">ID: ${result.data.id}</div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="font-bold font-mono text-exotBlue">${result.data.jam} WIB</span>
+                                    <span style="color:${colorStatus}; font-weight:bold">${iconStatus} ${result.data.keterangan}</span>
+                                </div>
+                            </div>
+                        `,
+                        confirmButtonText: 'Lanjut Scan',
+                        confirmButtonColor: '#2B55A4',
+                        customClass: { popup: 'rounded-2xl' }
+                    }).then(() => {
+                        resumeScanning();
+                    });
+
+                } else if (result.status === 'warning') {
+                    // Jika QR yang sama di-scan dua kali
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sudah Check-In',
+                        text: result.message,
+                        confirmButtonText: 'Tutup',
+                        confirmButtonColor: '#D4AF37',
+                        customClass: { popup: 'rounded-2xl' }
+                    }).then(() => resumeScanning());
+
+                } else {
+                    // Gagal/ID Tidak Ditemukan
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: result.message,
+                        confirmButtonText: 'Coba Lagi',
+                        confirmButtonColor: '#ef4444',
+                        customClass: { popup: 'rounded-2xl' }
+                    }).then(() => resumeScanning());
+                }
+            })
+            .catch(error => {
+                console.error('Error HTTP:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Koneksi Terputus',
+                    text: 'Pastikan internet HP stabil dan API URL benar.',
+                    confirmButtonText: 'Oke',
+                    confirmButtonColor: '#ef4444'
+                }).then(() => resumeScanning());
+            });
+        }
+
+        // Fungsi me-resume kamera setelah popup ditutup
+        function resumeScanning() {
+            isScanning = false;
+            if(html5QrcodeScanner.getState() === 2 /* PAUSED */) {
+                html5QrcodeScanner.resume();
+            }
+        }
+
+        function onScanFailure(error) {
+            // Biarkan saja, tidak perlu log error jika belum dapat gambar yg pas
+        }
+
+        // Konfigurasi dan inisiasi Scanner
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader",
+            { 
+                fps: 10, 
+                qrbox: {width: 250, height: 250},
+                aspectRatio: 1.0
+            },
+            /* verbose= */ false
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+
+        // CSS Override sedikit untuk menghilangkan border default bawaan html5-qrcode
+        document.addEventListener('DOMContentLoaded', () => {
+            const style = document.createElement('style');
+            style.innerHTML = `
+                #reader { border: none !important; }
+                #reader button { background: #2B55A4; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; }
+                #reader a { display: none !important; } 
+            `;
+            document.head.appendChild(style);
+        });
+    </script>
+</body>
+</html>
