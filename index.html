@@ -14,8 +14,16 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    colors: { exotBlue: '#2B55A4', exotCyan: '#00A9E2', exotGold: '#D4AF37' },
-                    fontFamily: { sans: ['Poppins', 'sans-serif'], heading: ['Montserrat', 'sans-serif'] }
+                    colors: { 
+                        exotBlue: '#2B55A4', 
+                        exotCyan: '#00A9E2', 
+                        exotGold: '#D4AF37',
+                        studentIndigo: '#4f46e5' 
+                    },
+                    fontFamily: { 
+                        sans: ['Poppins', 'sans-serif'], 
+                        heading: ['Montserrat', 'sans-serif'] 
+                    }
                 }
             }
         }
@@ -33,8 +41,8 @@
 <body class="bg-slate-900 text-white font-sans h-screen w-screen overflow-hidden flex flex-col">
 
     <!-- Header Branding -->
-    <header class="p-5 text-center border-b border-slate-700/50 bg-slate-800/80 backdrop-blur-md z-10">
-        <h1 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-exotCyan to-exotGold font-heading tracking-tight">EXOT <span class="text-white">SCANNER</span></h1>
+    <header class="p-5 text-center border-b border-slate-700/50 bg-slate-800/80 backdrop-blur-md z-10 transition-colors duration-500" id="header-bg">
+        <h1 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-exotCyan to-exotGold font-heading tracking-tight" id="header-title">EXOT <span class="text-white">SCANNER</span></h1>
         <p class="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">Al-Wildan Islamic School</p>
     </header>
 
@@ -42,19 +50,30 @@
     <div class="flex-1 flex flex-col items-center justify-center p-6 relative">
         
         <!-- Decorative Glow -->
-        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-exotCyan rounded-full mix-blend-screen filter blur-[100px] opacity-20 pointer-events-none"></div>
+        <div id="glow-effect" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-exotCyan rounded-full mix-blend-screen filter blur-[100px] opacity-20 pointer-events-none transition-colors duration-500"></div>
 
-        <div class="w-full max-w-sm bg-white rounded-[2rem] overflow-hidden shadow-2xl shadow-exotCyan/10 border-4 border-slate-700 relative z-10">
+        <!-- Mode Selection Toggle -->
+        <div class="bg-slate-800/80 p-1.5 rounded-full inline-flex mb-6 relative z-10 shadow-xl border border-slate-700 backdrop-blur-md">
+            <button id="btn-mode-penguji" onclick="setMode('penguji')" class="px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 bg-gradient-to-r from-exotBlue to-exotCyan text-white shadow-lg shadow-exotBlue/30">
+                <i class="fa-solid fa-user-tie mr-1.5"></i> Penguji
+            </button>
+            <button id="btn-mode-siswa" onclick="setMode('siswa')" class="px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-user-graduate mr-1.5"></i> Siswa
+            </button>
+        </div>
+
+        <!-- Scanner Card -->
+        <div class="w-full max-w-sm bg-white rounded-[2rem] overflow-hidden shadow-2xl shadow-exotCyan/10 border-4 border-slate-700 relative z-10 transition-colors duration-500" id="scanner-border">
             <!-- Tempat Reader Kamera -->
             <div id="reader" class="w-full bg-black"></div>
         </div>
         
-        <div class="mt-8 text-center max-w-xs relative z-10">
-            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-800 border border-slate-700 text-exotGold mb-3">
-                <i class="fa-solid fa-qrcode text-xl"></i>
+        <div class="mt-6 text-center max-w-xs relative z-10">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-800 border border-slate-700 text-exotGold mb-3 transition-colors duration-500" id="icon-bg">
+                <i class="fa-solid fa-qrcode text-xl" id="scan-icon"></i>
             </div>
             <p class="text-slate-300 text-sm leading-relaxed">
-                Arahkan kamera ke <strong class="text-white">QR Code ID Card Penguji</strong>. Pemindaian akan berjalan otomatis.
+                Arahkan kamera ke <strong class="text-white" id="scan-target-text">QR Code ID Card Penguji</strong>. Pemindaian akan berjalan otomatis.
             </p>
         </div>
     </div>
@@ -65,8 +84,38 @@
         
         let html5QrcodeScanner;
         let isScanning = false; // Flag mencegah double scan
+        let currentMode = 'penguji'; // Default mode
 
-        // Callback sukses saat QR terbaca
+        // Fungsi mengubah Mode UI (Siswa / Penguji)
+        function setMode(mode) {
+            currentMode = mode;
+            
+            const btnPenguji = document.getElementById('btn-mode-penguji');
+            const btnSiswa = document.getElementById('btn-mode-siswa');
+            const targetText = document.getElementById('scan-target-text');
+            const glowEffect = document.getElementById('glow-effect');
+            const scannerBorder = document.getElementById('scanner-border');
+            
+            if (mode === 'siswa') {
+                // UI Mode Siswa Aktif
+                btnSiswa.className = "px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/30";
+                btnPenguji.className = "px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 text-slate-400 hover:text-white";
+                
+                targetText.innerText = "Barcode Kartu / NIS Siswa";
+                glowEffect.classList.replace('bg-exotCyan', 'bg-indigo-500');
+                scannerBorder.classList.replace('shadow-exotCyan/10', 'shadow-indigo-500/10');
+            } else {
+                // UI Mode Penguji Aktif
+                btnPenguji.className = "px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 bg-gradient-to-r from-exotBlue to-exotCyan text-white shadow-lg shadow-exotBlue/30";
+                btnSiswa.className = "px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 text-slate-400 hover:text-white";
+                
+                targetText.innerText = "QR Code ID Card Penguji";
+                glowEffect.classList.replace('bg-indigo-500', 'bg-exotCyan');
+                scannerBorder.classList.replace('shadow-indigo-500/10', 'shadow-exotCyan/10');
+            }
+        }
+
+        // Callback sukses saat QR/Barcode terbaca
         function onScanSuccess(decodedText, decodedResult) {
             if (isScanning) return; 
             isScanning = true;
@@ -84,12 +133,19 @@
                 }
             });
 
+            // Siapkan payload sesuai mode yang dipilih
+            let requestPayload = {};
+            if (currentMode === 'siswa') {
+                requestPayload = { type: 'siswa', id_siswa: decodedText };
+            } else {
+                requestPayload = { id_penguji: decodedText };
+            }
+
             // Kirim request POST ke Google Apps Script
-            // Note: Menggunakan Content-Type text/plain untuk menghindari block CORS Preflight pada Google Apps Script
             fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ id_penguji: decodedText }) 
+                body: JSON.stringify(requestPayload) 
             })
             .then(response => response.json())
             .then(result => {
@@ -97,6 +153,9 @@
                     // Sukses Check-in
                     let iconStatus = result.data.keterangan === 'Terlambat' ? '⚠️' : '✅';
                     let colorStatus = result.data.keterangan === 'Terlambat' ? '#ef4444' : '#10b981';
+                    
+                    // Menangkap tipe dari respon backend untuk UI popup
+                    let tipeUser = result.data.tipe || (currentMode === 'siswa' ? 'Siswa' : 'Penguji');
 
                     Swal.fire({
                         icon: 'success',
@@ -104,7 +163,7 @@
                         html: `
                             <div class="text-left bg-slate-50 p-4 rounded-xl mt-3 border border-slate-100">
                                 <div class="font-black text-slate-800 text-xl mb-1">${result.data.nama}</div>
-                                <div class="text-sm text-slate-500 border-b border-slate-200 pb-2 mb-2">ID: ${result.data.id}</div>
+                                <div class="text-xs font-bold text-slate-500 border-b border-slate-200 pb-2 mb-2">Tipe: <span class="text-slate-700">${tipeUser}</span> | ID: ${result.data.id}</div>
                                 <div class="flex justify-between items-center text-sm">
                                     <span class="font-bold font-mono text-exotBlue">${result.data.jam} WIB</span>
                                     <span style="color:${colorStatus}; font-weight:bold">${iconStatus} ${result.data.keterangan}</span>
@@ -112,7 +171,7 @@
                             </div>
                         `,
                         confirmButtonText: 'Lanjut Scan',
-                        confirmButtonColor: '#2B55A4',
+                        confirmButtonColor: currentMode === 'siswa' ? '#4f46e5' : '#2B55A4',
                         customClass: { popup: 'rounded-2xl' }
                     }).then(() => {
                         resumeScanning();
@@ -182,8 +241,10 @@
             const style = document.createElement('style');
             style.innerHTML = `
                 #reader { border: none !important; }
-                #reader button { background: #2B55A4; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; }
+                #reader button { background: #2B55A4; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: bold; margin-top: 10px; cursor: pointer; transition: background 0.3s;}
+                #reader button:hover { background: #1e3a8a; }
                 #reader a { display: none !important; } 
+                #reader video { border-radius: 0 0 1.5rem 1.5rem; }
             `;
             document.head.appendChild(style);
         });
